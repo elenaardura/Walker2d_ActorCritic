@@ -25,9 +25,9 @@ def build_model(
         return PPO(
             policy="CnnPolicy",
             env=env,
-            learning_rate=3e-4,
+            learning_rate=1e-4,
             n_steps=1024,
-            batch_size=256,
+            batch_size=64,
             n_epochs=10,
             gamma=0.99,
             gae_lambda=0.95,

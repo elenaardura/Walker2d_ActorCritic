@@ -16,17 +16,17 @@ ALGO = "ppo"                      # "ppo" o "sac"
 ENV_ID = "Walker2d-v5"
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 
-TOTAL_TIMESTEPS = 1_000_000
+TOTAL_TIMESTEPS = 5_000_000
 SEED = 42
 NUM_ENVS = 4                      # PPO: 4 suele ir bien; SAC: mejor 1
 IMAGE_SIZE = 84
 FRAME_STACK = 4
 
-REWARD_SHAPING = False
+REWARD_SHAPING = True
 TERMINATE_WHEN_UNHEALTHY = True
 HEALTHY_Z_RANGE = (0.8, 2.0)
 
-EVAL_EVERY = 25_000
+EVAL_EVERY = 100_000
 CHECKPOINT_EVERY = 100_000
 N_EVAL_EPISODES = 10
 
@@ -34,6 +34,7 @@ EXPERIMENT_XLSX = "runs/experiments.xlsx"
 
 # Si quieres reusar un directorio fijo, comenta la línea de abajo y fija MODEL_DIR manualmente
 MODEL_DIR = str(make_run_dir("runs"))
+TB_DIR = str(make_run_dir("runs") + "/PPO_0")
 
 os.makedirs(MODEL_DIR, exist_ok=True)
 
@@ -72,14 +73,14 @@ def evaluate_model(model, n_episodes=10):
 
 
 def main():
-    global NUM_ENVS
-
     seed_everything(SEED)
+
+    global NUM_ENVS
 
     if ALGO == "sac":
         NUM_ENVS = 1
 
-    writer = SummaryWriter(MODEL_DIR)
+    writer = SummaryWriter(TB_DIR)
 
     config = {
         "algo": ALGO,
@@ -143,11 +144,11 @@ def main():
             writer.add_scalar("eval/std_reward", std_eval_reward, steps_done)
 
             if steps_done % CHECKPOINT_EVERY == 0 or steps_done >= TOTAL_TIMESTEPS:
-                ckpt_path = os.path.join(MODEL_DIR, f"{ALGO}_walker2d_step{steps_done}.zip")
+                ckpt_path = os.path.join(MODEL_DIR, f"{ALGO}_walker2d_step{steps_done}.pt")
                 model.save(ckpt_path)
                 print(f"[Checkpoint] Saved: {ckpt_path}")
 
-        final_path = os.path.join(MODEL_DIR, f"{ALGO}_walker2d.zip")
+        final_path = os.path.join(MODEL_DIR, f"{ALGO}_walker2d.pt")
         model.save(final_path)
         print(f"[OK] Final model saved: {final_path}")
 

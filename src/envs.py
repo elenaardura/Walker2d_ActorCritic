@@ -165,6 +165,7 @@ def make_single_walker_env(
             episode_trigger=lambda ep: True,
             name_prefix=video_prefix,
         )
+        print(f"[Video] Recording enabled. Videos will be saved to: {record_video_folder}")
 
     env = gym.wrappers.RecordEpisodeStatistics(env)
 
