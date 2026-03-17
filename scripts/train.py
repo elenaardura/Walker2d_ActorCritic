@@ -1,111 +1,176 @@
-from __future__ import annotations
+import os
+import numpy as np
+import torch
+from tqdm import tqdm
+from torch.utils.tensorboard import SummaryWriter
 
-import argparse
-
-from src.envs import make_vec_walker_env
+from src.envs import make_vec_walker_env, make_single_walker_env
 from src.methods import build_model
-from scripts.utils import build_callbacks, make_run_dir, save_args, seed_everything
+from scripts.utils import seed_everything, make_run_dir, save_config, save_experiment_to_excel
 
 
-def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Entrenamiento PPO/SAC en Walker2d-v5 con observación RGB.")
+# -----------------------------
+# Configuración / hiperparámetros
+# -----------------------------
+ALGO = "ppo"                      # "ppo" o "sac"
+ENV_ID = "Walker2d-v5"
+DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 
-    parser.add_argument("--algo", type=str, default="ppo", choices=["ppo", "sac"])
-    parser.add_argument("--env-id", type=str, default="Walker2d-v5")
+TOTAL_TIMESTEPS = 1_000_000
+SEED = 42
+NUM_ENVS = 4                      # PPO: 4 suele ir bien; SAC: mejor 1
+IMAGE_SIZE = 84
+FRAME_STACK = 4
 
-    parser.add_argument("--total-timesteps", type=int, default=1_000_000)
-    parser.add_argument("--seed", type=int, default=42)
-    parser.add_argument("--device", type=str, default="auto")
+REWARD_SHAPING = False
+TERMINATE_WHEN_UNHEALTHY = True
+HEALTHY_Z_RANGE = (0.8, 2.0)
 
-    parser.add_argument("--image-size", type=int, default=84)
-    parser.add_argument("--frame-stack", type=int, default=4)
+EVAL_EVERY = 25_000
+CHECKPOINT_EVERY = 100_000
+N_EVAL_EPISODES = 10
 
-    parser.add_argument("--n-envs", type=int, default=None)
+EXPERIMENT_XLSX = "runs/experiments.xlsx"
 
-    parser.add_argument("--reward-shaping", action="store_true")
-    parser.add_argument("--no-terminate-when-unhealthy", action="store_true")
+# Si quieres reusar un directorio fijo, comenta la línea de abajo y fija MODEL_DIR manualmente
+MODEL_DIR = str(make_run_dir("runs"))
 
-    parser.add_argument("--eval-freq", type=int, default=25_000)
-    parser.add_argument("--checkpoint-freq", type=int, default=100_000)
-    parser.add_argument("--runs-dir", type=str, default="runs")
-
-    return parser.parse_args()
+os.makedirs(MODEL_DIR, exist_ok=True)
 
 
-def main() -> None:
-    args = parse_args()
-    seed_everything(args.seed)
-
-    if args.n_envs is None:
-        args.n_envs = 4 if args.algo == "ppo" else 1
-
-    if args.algo == "sac" and args.n_envs != 1:
-        print("[INFO] Para SAC dejo n_envs=1 en este baseline.")
-        args.n_envs = 1
-
-    run_dir = make_run_dir(
-        root=args.runs_dir,
-        algo=args.algo,
-        env_id=args.env_id,
-        seed=args.seed,
-    )
-    save_args(args, run_dir)
-
-    terminate_when_unhealthy = not args.no_terminate_when_unhealthy
-
-    train_env = make_vec_walker_env(
-        env_id=args.env_id,
-        seed=args.seed,
-        n_envs=args.n_envs,
-        image_size=args.image_size,
-        frame_stack=args.frame_stack,
-        reward_shaping=args.reward_shaping,
-        terminate_when_unhealthy=terminate_when_unhealthy,
-        monitor_path=run_dir / "train_monitor.csv",
+def evaluate_model(model, n_episodes=10):
+    eval_env = make_single_walker_env(
+        env_id=ENV_ID,
+        seed=SEED + 10_000,
+        image_size=IMAGE_SIZE,
+        frame_stack=FRAME_STACK,
+        reward_shaping=REWARD_SHAPING,
+        terminate_when_unhealthy=TERMINATE_WHEN_UNHEALTHY,
+        healthy_z_range=HEALTHY_Z_RANGE,
     )
 
-    eval_env = make_vec_walker_env(
-        env_id=args.env_id,
-        seed=args.seed + 10_000,
-        n_envs=1,
-        image_size=args.image_size,
-        frame_stack=args.frame_stack,
-        reward_shaping=args.reward_shaping,
-        terminate_when_unhealthy=terminate_when_unhealthy,
-        monitor_path=run_dir / "eval_monitor.csv",
+    rewards = []
+
+    try:
+        for ep in range(n_episodes):
+            obs, _ = eval_env.reset(seed=SEED + 10_000 + ep)
+            done = False
+            ep_reward = 0.0
+
+            while not done:
+                action, _ = model.predict(obs, deterministic=True)
+                obs, reward, terminated, truncated, _ = eval_env.step(action)
+                ep_reward += float(reward)
+                done = bool(terminated or truncated)
+
+            rewards.append(ep_reward)
+
+    finally:
+        eval_env.close()
+
+    return float(np.mean(rewards)), float(np.std(rewards))
+
+
+def main():
+    global NUM_ENVS
+
+    seed_everything(SEED)
+
+    if ALGO == "sac":
+        NUM_ENVS = 1
+
+    writer = SummaryWriter(MODEL_DIR)
+
+    config = {
+        "algo": ALGO,
+        "env_id": ENV_ID,
+        "device": DEVICE,
+        "total_timesteps": TOTAL_TIMESTEPS,
+        "seed": SEED,
+        "num_envs": NUM_ENVS,
+        "image_size": IMAGE_SIZE,
+        "frame_stack": FRAME_STACK,
+        "reward_shaping": REWARD_SHAPING,
+        "terminate_when_unhealthy": TERMINATE_WHEN_UNHEALTHY,
+        "healthy_z_range": HEALTHY_Z_RANGE,
+        "eval_every": EVAL_EVERY,
+        "checkpoint_every": CHECKPOINT_EVERY,
+        "n_eval_episodes": N_EVAL_EPISODES,
+    }
+    save_config(config, MODEL_DIR)
+
+    env = make_vec_walker_env(
+        env_id=ENV_ID,
+        seed=SEED,
+        n_envs=NUM_ENVS,
+        image_size=IMAGE_SIZE,
+        frame_stack=FRAME_STACK,
+        reward_shaping=REWARD_SHAPING,
+        terminate_when_unhealthy=TERMINATE_WHEN_UNHEALTHY,
+        healthy_z_range=HEALTHY_Z_RANGE,
+        monitor_path=os.path.join(MODEL_DIR, "train_monitor.csv"),
     )
 
     model = build_model(
-        algo=args.algo,
-        env=train_env,
-        seed=args.seed,
-        tensorboard_log=str(run_dir / "tb"),
-        device=args.device,
+        algo=ALGO,
+        env=env,
+        seed=SEED,
+        tensorboard_log=MODEL_DIR,
+        device=DEVICE,
     )
 
-    eval_freq = max(args.eval_freq // args.n_envs, 1)
-    checkpoint_freq = max(args.checkpoint_freq // args.n_envs, 1)
-
-    callbacks = build_callbacks(
-        eval_env=eval_env,
-        run_dir=run_dir,
-        eval_freq=eval_freq,
-        checkpoint_freq=checkpoint_freq,
-        save_replay_buffer=(args.algo == "sac"),
-        n_eval_episodes=5,
-    )
+    steps_done = 0
+    avg_eval_reward = np.nan
 
     try:
-        model.learn(
-            total_timesteps=args.total_timesteps,
-            callback=callbacks,
-            progress_bar=True,
-        )
-        model.save(str(run_dir / "final_model"))
-        print(f"[OK] Modelo final guardado en: {run_dir / 'final_model.zip'}")
+        while steps_done < TOTAL_TIMESTEPS:
+            chunk = min(EVAL_EVERY, TOTAL_TIMESTEPS - steps_done)
+
+            model.learn(
+                total_timesteps=chunk,
+                reset_num_timesteps=False,
+                progress_bar=True,
+            )
+
+            steps_done += chunk
+
+            avg_eval_reward, std_eval_reward = evaluate_model(model, N_EVAL_EPISODES)
+            print(
+                f"[Eval] steps={steps_done} | avg_reward={avg_eval_reward:.2f} ± {std_eval_reward:.2f}"
+            )
+
+            writer.add_scalar("eval/avg_reward", avg_eval_reward, steps_done)
+            writer.add_scalar("eval/std_reward", std_eval_reward, steps_done)
+
+            if steps_done % CHECKPOINT_EVERY == 0 or steps_done >= TOTAL_TIMESTEPS:
+                ckpt_path = os.path.join(MODEL_DIR, f"{ALGO}_walker2d_step{steps_done}.zip")
+                model.save(ckpt_path)
+                print(f"[Checkpoint] Saved: {ckpt_path}")
+
+        final_path = os.path.join(MODEL_DIR, f"{ALGO}_walker2d.zip")
+        model.save(final_path)
+        print(f"[OK] Final model saved: {final_path}")
+
     finally:
-        train_env.close()
-        eval_env.close()
+        env.close()
+        writer.close()
+
+    row = {
+        "model_dir": MODEL_DIR[5:] if MODEL_DIR.startswith("runs/") else MODEL_DIR,
+        "algo": ALGO,
+        "seed": SEED,
+        "total_timesteps": TOTAL_TIMESTEPS,
+        "num_envs": NUM_ENVS,
+        "image_size": IMAGE_SIZE,
+        "frame_stack": FRAME_STACK,
+        "reward_shaping": REWARD_SHAPING,
+        "terminate_when_unhealthy": TERMINATE_WHEN_UNHEALTHY,
+        "avg_eval_reward": avg_eval_reward,
+        "comments": "PPO/SAC visual Walker2d-v5",
+    }
+
+    save_experiment_to_excel(row, EXPERIMENT_XLSX)
+    print(f"[Excel] Appended results to {EXPERIMENT_XLSX}")
 
 
 if __name__ == "__main__":

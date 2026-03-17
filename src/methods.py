@@ -1,8 +1,4 @@
-from __future__ import annotations
-
 from pathlib import Path
-from typing import Any
-
 from stable_baselines3 import PPO, SAC
 
 
@@ -18,7 +14,6 @@ def build_model(
     seed: int = 0,
     tensorboard_log: str | None = None,
     device: str = "auto",
-    **overrides: Any,
 ):
     algo = algo.lower()
 
@@ -27,7 +22,7 @@ def build_model(
     }
 
     if algo == "ppo":
-        default_kwargs = dict(
+        return PPO(
             policy="CnnPolicy",
             env=env,
             learning_rate=3e-4,
@@ -46,11 +41,9 @@ def build_model(
             device=device,
             policy_kwargs=common_policy_kwargs,
         )
-        default_kwargs.update(overrides)
-        return PPO(**default_kwargs)
 
     if algo == "sac":
-        default_kwargs = dict(
+        return SAC(
             policy="CnnPolicy",
             env=env,
             learning_rate=3e-4,
@@ -71,8 +64,6 @@ def build_model(
                 "net_arch": [256, 256],
             },
         )
-        default_kwargs.update(overrides)
-        return SAC(**default_kwargs)
 
     raise ValueError(f"Algoritmo no soportado: {algo}. Usa 'ppo' o 'sac'.")
 
