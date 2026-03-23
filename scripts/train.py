@@ -4,9 +4,59 @@ import torch
 from tqdm import tqdm
 from torch.utils.tensorboard import SummaryWriter
 
+from stable_baselines3.common.callbacks import BaseCallback
+
 from src.envs import make_vec_walker_env, make_single_walker_env
 from src.methods import build_model
 from scripts.utils import seed_everything, make_run_dir, save_config, save_experiment_to_excel
+
+
+# ============================================================
+# Callback personalizado para monitorear acciones
+# ============================================================
+class ActionMonitorCallback(BaseCallback):
+    """
+    Monitorea las acciones tomadas por el modelo durante el entrenamiento.
+    Las guarda en TensorBoard cada N pasos.
+    """
+    def __init__(self, writer: SummaryWriter, log_freq: int = 1000):
+        super().__init__()
+        self.writer = writer
+        self.log_freq = log_freq
+        self.action_history = []
+
+    def _on_step(self) -> bool:
+        """Se llama después de cada step del entorno."""
+        # Obtener las acciones del último step
+        if hasattr(self.model, 'env') and hasattr(self.model.env, 'buf_actions'):
+            actions = self.model.env.buf_actions
+            self.action_history.append(actions.copy())
+
+        # Loguear cada log_freq steps
+        if self.num_timesteps % self.log_freq == 0 and len(self.action_history) > 0:
+            actions_array = np.array(self.action_history)
+            
+            # Estadísticas por dimensión
+            for i in range(actions_array.shape[1]):
+                mean_action = float(np.mean(actions_array[:, i]))
+                std_action = float(np.std(actions_array[:, i]))
+                min_action = float(np.min(actions_array[:, i]))
+                max_action = float(np.max(actions_array[:, i]))
+                
+                self.writer.add_scalar(f"train/action_{i}_mean", mean_action, self.num_timesteps)
+                self.writer.add_scalar(f"train/action_{i}_std", std_action, self.num_timesteps)
+                self.writer.add_scalar(f"train/action_{i}_min", min_action, self.num_timesteps)
+                self.writer.add_scalar(f"train/action_{i}_max", max_action, self.num_timesteps)
+            
+            # Estadísticas globales
+            mean_all = float(np.mean(actions_array))
+            std_all = float(np.std(actions_array))
+            self.writer.add_scalar(f"train/action_mean_all", mean_all, self.num_timesteps)
+            self.writer.add_scalar(f"train/action_std_all", std_all, self.num_timesteps)
+            
+            self.action_history = []
+
+        return True
 
 
 # -----------------------------
@@ -18,7 +68,7 @@ DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 
 TOTAL_TIMESTEPS = 5_000_000
 SEED = 42
-NUM_ENVS = 4                      # PPO: 4 suele ir bien; SAC: mejor 1
+NUM_ENVS = 8 # antes 4 (cambio +batch 256 y capas 512)                      # PPO: 4 suele ir bien; SAC: mejor 1
 IMAGE_SIZE = 84
 FRAME_STACK = 4
 
@@ -34,9 +84,9 @@ EXPERIMENT_XLSX = "runs/experiments.xlsx"
 
 # Si quieres reusar un directorio fijo, comenta la línea de abajo y fija MODEL_DIR manualmente
 MODEL_DIR = str(make_run_dir("runs"))
-TB_DIR = str(make_run_dir("runs") + "/PPO_0")
+TB_DIR = os.path.join(MODEL_DIR, "PPO_0")
 
-os.makedirs(MODEL_DIR, exist_ok=True)
+# os.makedirs(MODEL_DIR, exist_ok=True)
 
 
 def evaluate_model(model, n_episodes=10):
@@ -120,6 +170,9 @@ def main():
         device=DEVICE,
     )
 
+    # Añadir el callback personalizado
+    action_monitor_callback = ActionMonitorCallback(writer=writer)
+
     steps_done = 0
     avg_eval_reward = np.nan
 
@@ -131,6 +184,7 @@ def main():
                 total_timesteps=chunk,
                 reset_num_timesteps=False,
                 progress_bar=True,
+                callback=action_monitor_callback,  # Usar el callback
             )
 
             steps_done += chunk

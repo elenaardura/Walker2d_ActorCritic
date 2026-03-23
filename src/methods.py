@@ -18,21 +18,23 @@ def build_model(
     algo = algo.lower()
 
     common_policy_kwargs = {
-        "features_extractor_kwargs": {"features_dim": 256},
+        # "features_extractor_kwargs": {"features_dim": 256},
+        "features_extractor_kwargs": {"features_dim": 512},
+        "net_arch": [512, 512],
     }
 
     if algo == "ppo":
         return PPO(
             policy="CnnPolicy",
             env=env,
-            learning_rate=1e-4,
-            n_steps=1024,
-            batch_size=64,
+            learning_rate=3e-4,# antes 1e-4
+            n_steps=4096, # antes 1024
+            batch_size=256, # antes 64, luego 128
             n_epochs=10,
             gamma=0.99,
             gae_lambda=0.95,
             clip_range=0.2,
-            ent_coef=0.0,
+            ent_coef=0.02, # antes 0.0, luego 0.01 (cambiado a las 15:51)
             vf_coef=0.5,
             max_grad_norm=0.5,
             seed=seed,

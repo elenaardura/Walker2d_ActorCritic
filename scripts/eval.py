@@ -13,9 +13,9 @@ ALGO = "ppo"   # "ppo" o "sac"
 ENV_ID = "Walker2d-v5"
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 
-MODEL_DATE = "Mar17_11_16_12"  # ajusta esto
-LOAD_STEP = 1_000_000            # ajusta esto
-MODEL_PATH = f"runs/{MODEL_DATE}/{ALGO}_walker2d_step{LOAD_STEP}.zip"
+MODEL_DATE = "Mar23_13_21_26"  # ajusta esto
+LOAD_STEP = 5_000_000            # ajusta esto
+MODEL_PATH = f"runs/{MODEL_DATE}/{ALGO}_walker2d_step{LOAD_STEP}.pt"
 VIDEO_DIR = f"runs/{MODEL_DATE}/videos_eval"
 N_EPISODES = 5
 
@@ -28,7 +28,6 @@ HEALTHY_Z_RANGE = (0.8, 2.0)
 DETERMINISTIC = True
 
 os.makedirs(VIDEO_DIR, exist_ok=True)
-
 
 def main():
     env = make_single_walker_env(
@@ -67,6 +66,7 @@ def main():
                 ep_return += float(reward)
                 ep_len += 1
                 done = bool(terminated or truncated)
+                # s
 
             returns.append(ep_return)
             lengths.append(ep_len)

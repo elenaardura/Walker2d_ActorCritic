@@ -5,7 +5,7 @@ from collections import deque
 from pathlib import Path
 from typing import Callable
 
-from stable_baselines3.common.vec_env import DummyVecEnv, VecEnv, VecMonitor
+from stable_baselines3.common.vec_env import SubprocVecEnv, VecEnv, VecMonitor
 
 
 # =========================================================
@@ -174,7 +174,7 @@ def make_single_walker_env(
 
     env = PixelStackWrapper(env, k=frame_stack, size=image_size)
 
-    env.reset(seed=seed)
+    # env.reset(seed=seed)
     env.action_space.seed(seed)
     return env
 
@@ -188,7 +188,8 @@ def _make_env_fn(
     reward_shaping: bool,
     terminate_when_unhealthy: bool,
     healthy_z_range: tuple[float, float],
-) -> Callable[[], gym.Env]:
+) -> Callable[[], gym.Env]:                        
+    
     def _thunk():
         return make_single_walker_env(
             env_id=env_id,
@@ -203,13 +204,13 @@ def _make_env_fn(
 
 
 def make_vec_walker_env(
-    env_id="Walker2d-v5",
+    env_id="Walker2d-v5", 
     seed=0,
     n_envs=1,
     image_size=84,
     frame_stack=4,
     reward_shaping=False,
-    terminate_when_unhealthy=True,
+    terminate_when_unhealthy=True, 
     healthy_z_range=(0.8, 2.0),
     monitor_path=None,
 ) -> VecEnv:
@@ -227,6 +228,6 @@ def make_vec_walker_env(
         for i in range(n_envs)
     ]
 
-    vec_env = DummyVecEnv(env_fns)
+    vec_env = SubprocVecEnv(env_fns)
     vec_env = VecMonitor(vec_env, filename=str(monitor_path) if monitor_path else None)
     return vec_env
