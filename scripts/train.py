@@ -62,19 +62,22 @@ class ActionMonitorCallback(BaseCallback):
 # -----------------------------
 # Configuración / hiperparámetros
 # -----------------------------
-ALGO = "ppo"                      # "ppo" o "sac"
+ALGO = "sac"                      # "ppo" o "sac"
 ENV_ID = "Walker2d-v5"
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 
-TOTAL_TIMESTEPS = 5_000_000
+TOTAL_TIMESTEPS = 2_000_000 # antes 5M (cambio a 10M a partir del 24 a las 10:35)
 SEED = 42
-NUM_ENVS = 8 # antes 4 (cambio +batch 256 y capas 512)                      # PPO: 4 suele ir bien; SAC: mejor 1
+NUM_ENVS = 1 # antes 4 (cambio +batch 256 y capas 512) ,luego 8 para SAC 1                     # PPO: 4 suele ir bien; SAC: mejor 1
 IMAGE_SIZE = 84
 FRAME_STACK = 4
 
 REWARD_SHAPING = True
 TERMINATE_WHEN_UNHEALTHY = True
 HEALTHY_Z_RANGE = (0.8, 2.0)
+
+# ✅ Usar acciones discretas
+USE_DISCRETE_ACTIONS = False
 
 EVAL_EVERY = 100_000
 CHECKPOINT_EVERY = 100_000
@@ -84,12 +87,12 @@ EXPERIMENT_XLSX = "runs/experiments.xlsx"
 
 # Si quieres reusar un directorio fijo, comenta la línea de abajo y fija MODEL_DIR manualmente
 MODEL_DIR = str(make_run_dir("runs"))
-TB_DIR = os.path.join(MODEL_DIR, "PPO_0")
+TB_DIR = os.path.join(MODEL_DIR, "SAC_0")
 
 # os.makedirs(MODEL_DIR, exist_ok=True)
 
 
-def evaluate_model(model, n_episodes=10):
+def evaluate_model(model, n_episodes=10, use_discrete_actions=False):
     eval_env = make_single_walker_env(
         env_id=ENV_ID,
         seed=SEED + 10_000,
@@ -98,6 +101,7 @@ def evaluate_model(model, n_episodes=10):
         reward_shaping=REWARD_SHAPING,
         terminate_when_unhealthy=TERMINATE_WHEN_UNHEALTHY,
         healthy_z_range=HEALTHY_Z_RANGE,
+use_discrete_actions=use_discrete_actions,  # ✅ Pasar parámetro
     )
 
     rewards = []
@@ -144,6 +148,7 @@ def main():
         "reward_shaping": REWARD_SHAPING,
         "terminate_when_unhealthy": TERMINATE_WHEN_UNHEALTHY,
         "healthy_z_range": HEALTHY_Z_RANGE,
+        "use_discrete_actions": USE_DISCRETE_ACTIONS,  # ✅ Guardar en config
         "eval_every": EVAL_EVERY,
         "checkpoint_every": CHECKPOINT_EVERY,
         "n_eval_episodes": N_EVAL_EPISODES,
@@ -160,6 +165,7 @@ def main():
         terminate_when_unhealthy=TERMINATE_WHEN_UNHEALTHY,
         healthy_z_range=HEALTHY_Z_RANGE,
         monitor_path=os.path.join(MODEL_DIR, "train_monitor.csv"),
+use_discrete_actions=USE_DISCRETE_ACTIONS,  # ✅ Pasar parámetro
     )
 
     model = build_model(
@@ -189,7 +195,12 @@ def main():
 
             steps_done += chunk
 
-            avg_eval_reward, std_eval_reward = evaluate_model(model, N_EVAL_EPISODES)
+# ✅ Pasar use_discrete_actions a evaluate_model
+            avg_eval_reward, std_eval_reward = evaluate_model(
+model, 
+N_EVAL_EPISODES,
+                use_discrete_actions=USE_DISCRETE_ACTIONS
+)
             print(
                 f"[Eval] steps={steps_done} | avg_reward={avg_eval_reward:.2f} ± {std_eval_reward:.2f}"
             )
@@ -220,6 +231,7 @@ def main():
         "frame_stack": FRAME_STACK,
         "reward_shaping": REWARD_SHAPING,
         "terminate_when_unhealthy": TERMINATE_WHEN_UNHEALTHY,
+"use_discrete_actions": USE_DISCRETE_ACTIONS,  # ✅ Guardar en Excel
         "avg_eval_reward": avg_eval_reward,
         "comments": "PPO/SAC visual Walker2d-v5",
     }

@@ -34,7 +34,7 @@ def build_model(
             gamma=0.99,
             gae_lambda=0.95,
             clip_range=0.2,
-            ent_coef=0.02, # antes 0.0, luego 0.01 (cambiado a las 15:51)
+            ent_coef=0.015, # antes 0.0, luego 0.01 (cambiado a las 15:51)
             vf_coef=0.5,
             max_grad_norm=0.5,
             seed=seed,
@@ -48,22 +48,25 @@ def build_model(
         return SAC(
             policy="CnnPolicy",
             env=env,
-            learning_rate=3e-4,
-            buffer_size=300_000,
-            learning_starts=10_000,
-            batch_size=256,
-            tau=0.005,
+            learning_rate=1e-4, # antes 3e-4
+            buffer_size=300_000, 
+            learning_starts=100_000, #antes 25k (cambio a 100k el 26 a las 8:12)
+            batch_size=128, # antes 256 (cambiado a las 8:14 del 26)
+            tau=0.01, # antes 0.005
             gamma=0.99,
-            train_freq=(1, "step"),
-            gradient_steps=1,
-            ent_coef="auto",
+            train_freq=(4, "step"), # antes (1, "step") 
+            gradient_steps=4, # antes 1
+            ent_coef=0.01, # antes auto, luego 0.01 (cambiado a las 8:14 el 26)
+            target_entropy="auto",
             seed=seed,
             verbose=1,
             tensorboard_log=tensorboard_log,
             device=device,
             policy_kwargs={
                 **common_policy_kwargs,
-                "net_arch": [256, 256],
+                # "net_arch": [256, 256],
+                "net_arch": [512, 512],
+                
             },
         )
 

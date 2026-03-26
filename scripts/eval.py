@@ -9,12 +9,12 @@ from src.envs import make_single_walker_env
 # -----------------------------
 # Configuración
 # -----------------------------
-ALGO = "ppo"   # "ppo" o "sac"
+ALGO = "sac"   # "ppo" o "sac"
 ENV_ID = "Walker2d-v5"
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 
-MODEL_DATE = "Mar23_13_21_26"  # ajusta esto
-LOAD_STEP = 5_000_000            # ajusta esto
+MODEL_DATE = "Mar25_12_03_41"  # ajusta esto
+LOAD_STEP = 300_000            # ajusta esto
 MODEL_PATH = f"runs/{MODEL_DATE}/{ALGO}_walker2d_step{LOAD_STEP}.pt"
 VIDEO_DIR = f"runs/{MODEL_DATE}/videos_eval"
 N_EPISODES = 5
@@ -27,7 +27,11 @@ TERMINATE_WHEN_UNHEALTHY = True
 HEALTHY_Z_RANGE = (0.8, 2.0)
 DETERMINISTIC = True
 
+# ✅ NUEVO: Usar acciones discretas
+USE_DISCRETE_ACTIONS = False  # Cambiar a False si el modelo fue entrenado con acciones continuas
+
 os.makedirs(VIDEO_DIR, exist_ok=True)
+
 
 def main():
     env = make_single_walker_env(
@@ -40,6 +44,7 @@ def main():
         healthy_z_range=HEALTHY_Z_RANGE,
         record_video_folder=VIDEO_DIR,
         video_prefix=f"{ALGO}_video_{LOAD_STEP}steps",
+        use_discrete_actions=USE_DISCRETE_ACTIONS,
     )
 
     model = load_model(
@@ -59,6 +64,8 @@ def main():
             ep_return = 0.0
             ep_len = 0
 
+            print(f"\n[Episode {ep + 1}] Starting...")
+
             while not done:
                 action, _ = model.predict(obs, deterministic=DETERMINISTIC)
                 obs, reward, terminated, truncated, info = env.step(action)
@@ -66,7 +73,6 @@ def main():
                 ep_return += float(reward)
                 ep_len += 1
                 done = bool(terminated or truncated)
-                # s
 
             returns.append(ep_return)
             lengths.append(ep_len)
@@ -83,8 +89,13 @@ def main():
                 print("is healthy:", env.unwrapped.is_healthy)
 
         print("-" * 60)
-        print(f"Mean return: {np.mean(returns):.2f} ± {np.std(returns):.2f}")
-        print(f"Mean length: {np.mean(lengths):.2f} ± {np.std(lengths):.2f}")
+        mean_return = np.mean(returns)
+        std_return = np.std(returns)
+        mean_length = np.mean(lengths)
+        std_length = np.std(lengths)
+        
+        print(f"Mean return: {mean_return:.2f} ± {std_return:.2f}")
+        print(f"Mean length: {mean_length:.2f} ± {std_length:.2f}")
 
     finally:
         env.close()

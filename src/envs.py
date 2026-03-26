@@ -19,6 +19,83 @@ def preprocess(frame, size=84):
     frame = np.transpose(frame, (2, 0, 1))  # HWC -> CHW
     return np.ascontiguousarray(frame, dtype=np.uint8)
 
+ 
+def make_discrete_action_set_legprototype(action_dim: int):
+    Z = np.zeros(action_dim, dtype=np.float32)
+    
+    # Magnitudes (suaves para evitar inestabilidad al inicio)
+    # a = 0.25 
+    a = 1.0
+    # b = 0.15 
+    # b = 0.25
+    b = 0.5
+
+    actions = []
+
+    def add(vector):
+        actions.append(np.clip(vector, -1.0, 1.0)) # Aseguramos que las acciones estén en el rango [-1, 1]   
+    
+    # Acción de idle (ninguna acción)
+    add(Z)
+    
+    # # 0) empuje global suave hacia adelante (arranque)
+    # add(np.full(action_dim, +b, dtype=np.float32))
+    
+    # # 1) dobla tobillo pierna 1 (empuje hacia adelante)
+    add(np.array([0, 0, 0, 0, 0, +a], dtype=np.float32))
+    add(np.array([0, 0, 0, 0, 0, -a], dtype=np.float32))
+    
+    # dobla tobillo pierna 2 (empuje hacia adelante)
+    add(np.array([0, 0, +a, 0, 0, 0], dtype=np.float32))
+    add(np.array([0, 0, a, 0, 0, 0], dtype=np.float32))
+    
+    # 2) empuja pierna 1 (extiende rodilla + empuja tobillo + hip suave)
+    add(np.array([0, -a, +a, 0, 0, 0], dtype=np.float32))
+    add(np.array([0, +a, -a, 0, 0, 0], dtype=np.float32))
+    
+    # 3) empuja pierna 2
+    add(np.array([0, 0, 0, 0, -a, +a], dtype=np.float32))
+    add(np.array([0, 0, 0, 0, +a, -a], dtype=np.float32))
+    
+    # 4) recupera pierna 1 (flexiona rodilla)
+    add(np.array([0, +a, 0, 0, 0, 0], dtype=np.float32))
+    add(np.array([0, -a, 0, 0, 0, 0], dtype=np.float32))
+
+    # 5) recupera pierna 2 (flexiona rodilla)
+    add(np.array([0, 0, 0, 0, +a, 0], dtype=np.float32))
+    add(np.array([0, 0, 0, 0, -a, 0], dtype=np.float32))
+
+    # 6) estabiliza (hips hacia atrás suave para no “tirarse”)
+    # add(np.array([-b, 0, 0, -b, 0, 0], dtype=np.float32)
+    # Hips fuertes (1.0)
+    add(np.array([0, 0, 0, +a, 0, 0], dtype=np.float32))
+    add(np.array([0, 0, 0, -a, 0, 0], dtype=np.float32))
+    add(np.array([+a, 0, 0, 0, 0, 0], dtype=np.float32))
+    add(np.array([-a, 0, 0, 0, 0, 0], dtype=np.float32))
+    # Hips suaves (0.5)
+    add(np.array([0, 0, 0, +b, 0, 0], dtype=np.float32))
+    add(np.array([0, 0, 0, -b, 0, 0], dtype=np.float32))
+    add(np.array([+b, 0, 0, 0, 0, 0], dtype=np.float32))
+    add(np.array([-b, 0, 0, 0, 0, 0], dtype=np.float32))
+    
+    return np.stack(actions, axis=0)
+    
+
+class DiscreteActionWrapper(gym.ActionWrapper):
+    """
+    Convierte acciones discretas (int) en acciones continuas (Box)
+    """
+    def __init__(self, env):
+        super().__init__(env)
+        assert isinstance(env.action_space, gym.spaces.Box) # Comprobamos que el espacio de acciones original es continuo
+
+        # self._actions = make_discrete_action_set(env.action_space.shape[0]) # Creamos el conjunto de acciones discretas
+        self._actions = make_discrete_action_set_legprototype(env.action_space.shape[0]) # Usamos el conjunto de acciones prototipo específico para Walker2D
+        self.action_space = gym.spaces.Discrete(self._actions.shape[0]) # Redefinimos el espacio de acciones a discreto con el número de acciones prototipo
+
+    def action(self, act_idx):
+        return self._actions[int(act_idx)] # Convertimos el índice de acción discreta en la acción continua correspondiente
+
 
 class PixelStackWrapper(gym.Wrapper):
     """
@@ -150,12 +227,14 @@ def make_single_walker_env(
     healthy_z_range=(0.8, 2.0),
     record_video_folder=None,
     video_prefix="eval",
+    use_discrete_actions=False,
 ):
     env = gym.make(
         env_id,
         render_mode="rgb_array",
         terminate_when_unhealthy=terminate_when_unhealthy,
         healthy_z_range=healthy_z_range,
+        max_episode_steps=3000,  # Aumentamos el límite de pasos por episodio para permitir episodios más largos (version 24 a las 10:35)
     )
 
     if record_video_folder is not None:
@@ -174,7 +253,9 @@ def make_single_walker_env(
 
     env = PixelStackWrapper(env, k=frame_stack, size=image_size)
 
-    # env.reset(seed=seed)
+    if use_discrete_actions:
+        env = DiscreteActionWrapper(env)
+
     env.action_space.seed(seed)
     return env
 
@@ -188,6 +269,7 @@ def _make_env_fn(
     reward_shaping: bool,
     terminate_when_unhealthy: bool,
     healthy_z_range: tuple[float, float],
+    use_discrete_actions: bool = False,
 ) -> Callable[[], gym.Env]:                        
     
     def _thunk():
@@ -199,6 +281,7 @@ def _make_env_fn(
             reward_shaping=reward_shaping,
             terminate_when_unhealthy=terminate_when_unhealthy,
             healthy_z_range=healthy_z_range,
+            use_discrete_actions=use_discrete_actions,
         )
     return _thunk
 
@@ -213,6 +296,7 @@ def make_vec_walker_env(
     terminate_when_unhealthy=True, 
     healthy_z_range=(0.8, 2.0),
     monitor_path=None,
+    use_discrete_actions=False,
 ) -> VecEnv:
     env_fns = [
         _make_env_fn(
@@ -224,6 +308,7 @@ def make_vec_walker_env(
             reward_shaping=reward_shaping,
             terminate_when_unhealthy=terminate_when_unhealthy,
             healthy_z_range=healthy_z_range,
+            use_discrete_actions=use_discrete_actions,
         )
         for i in range(n_envs)
     ]
