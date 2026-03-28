@@ -13,8 +13,8 @@ ALGO = "sac"   # "ppo" o "sac"
 ENV_ID = "Walker2d-v5"
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 
-MODEL_DATE = "Mar25_12_03_41"  # ajusta esto
-LOAD_STEP = 300_000            # ajusta esto
+MODEL_DATE = "Mar27_12_29_56"  # ajusta esto
+LOAD_STEP = 2_550_000            # ajusta esto
 MODEL_PATH = f"runs/{MODEL_DATE}/{ALGO}_walker2d_step{LOAD_STEP}.pt"
 VIDEO_DIR = f"runs/{MODEL_DATE}/videos_eval"
 N_EPISODES = 5

@@ -234,7 +234,7 @@ def make_single_walker_env(
         render_mode="rgb_array",
         terminate_when_unhealthy=terminate_when_unhealthy,
         healthy_z_range=healthy_z_range,
-        max_episode_steps=3000,  # Aumentamos el límite de pasos por episodio para permitir episodios más largos (version 24 a las 10:35)
+        # max_episode_steps=3000,  # Aumentamos el límite de pasos por episodio para permitir episodios más largos (version 24 a las 10:35)
     )
 
     if record_video_folder is not None:

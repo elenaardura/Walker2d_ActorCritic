@@ -18,9 +18,10 @@ def build_model(
     algo = algo.lower()
 
     common_policy_kwargs = {
-        # "features_extractor_kwargs": {"features_dim": 256},
-        "features_extractor_kwargs": {"features_dim": 512},
-        "net_arch": [512, 512],
+        "features_extractor_kwargs": {"features_dim": 256},
+        # "features_extractor_kwargs": {"features_dim": 512},
+        "net_arch": [256, 256],
+        # "net_arch": [512, 512],
     }
 
     if algo == "ppo":
@@ -48,15 +49,15 @@ def build_model(
         return SAC(
             policy="CnnPolicy",
             env=env,
-            learning_rate=1e-4, # antes 3e-4
-            buffer_size=300_000, 
-            learning_starts=100_000, #antes 25k (cambio a 100k el 26 a las 8:12)
-            batch_size=128, # antes 256 (cambiado a las 8:14 del 26)
-            tau=0.01, # antes 0.005
+            learning_rate=3e-5, # antes 3e-4, luego 1e-4 (cambiado el 26 a las 11:40 a 5e-5, y luego a 3e-5 el 27 a las 12:29)
+            buffer_size=100_000, # antes 300k (cambio a 100k el 26 a las 10:20)
+            learning_starts=20_000, #antes 25k (cambio a 100k el 26 a las 8:12, cambio a 20k el 26 a las 10:20)
+            batch_size=256, # antes 256 (cambiado a  128 a las 8:14 del 26, vuelto a poner a las 10:20)
+            tau=0.005, # antes 0.005 (cambiado a 0.01 vuelto a poner a las 10:20)
             gamma=0.99,
-            train_freq=(4, "step"), # antes (1, "step") 
-            gradient_steps=4, # antes 1
-            ent_coef=0.01, # antes auto, luego 0.01 (cambiado a las 8:14 el 26)
+            train_freq=(1, "step"), # antes (1, "step") y vuelto a poner a las 10:20 del 26
+            gradient_steps=1, # antes 1 y vuelto a poner a las 10:20 del 26
+            ent_coef="auto", # antes auto, luego 0.01 (cambiado a las 8:14 el 26) y vuelto a poner a las 10:20 del 26
             target_entropy="auto",
             seed=seed,
             verbose=1,
@@ -64,8 +65,6 @@ def build_model(
             device=device,
             policy_kwargs={
                 **common_policy_kwargs,
-                # "net_arch": [256, 256],
-                "net_arch": [512, 512],
                 
             },
         )
