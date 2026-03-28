@@ -62,13 +62,13 @@ class ActionMonitorCallback(BaseCallback):
 # -----------------------------
 # Configuración / hiperparámetros
 # -----------------------------
-ALGO = "sac"                      # "ppo" o "sac"
+ALGO = "ppo"                      # "ppo" o "sac"
 ENV_ID = "Walker2d-v5"
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 
-TOTAL_TIMESTEPS = 5_000_000 # antes 5M (cambio a 10M a partir del 24 a las 10:35). Los del SAC a 2M y cambio a 5M a las 12:29 del 27 
+TOTAL_TIMESTEPS = 10_000_000 # antes 5M (cambio a 10M a partir del 24 a las 10:35). Los del SAC a 2M y cambio a 5M a las 12:29 del 27 
 SEED = 42
-NUM_ENVS = 1 # antes 4 (cambio +batch 256 y capas 512) ,luego 8 para SAC 1                     # PPO: 4 suele ir bien; SAC: mejor 1
+NUM_ENVS = 8 # antes 4 (cambio +batch 256 y capas 512) ,luego 8 para SAC 1
 IMAGE_SIZE = 84
 FRAME_STACK = 4
 
@@ -76,11 +76,10 @@ REWARD_SHAPING = True
 TERMINATE_WHEN_UNHEALTHY = True
 HEALTHY_Z_RANGE = (0.8, 2.0)
 
-# ✅ Usar acciones discretas
 USE_DISCRETE_ACTIONS = False
 
-EVAL_EVERY = 50_000
-CHECKPOINT_EVERY = 50_000
+EVAL_EVERY = 100_000
+CHECKPOINT_EVERY = 100_000
 N_EVAL_EPISODES = 10
 
 EXPERIMENT_XLSX = "runs/experiments.xlsx"
@@ -104,11 +103,10 @@ def evaluate_model(model, n_episodes=10, use_discrete_actions=False):
 use_discrete_actions=use_discrete_actions,  # ✅ Pasar parámetro
     )
 
-    shaped_rewards = []
-    base_rewards = []
-
-    speed_bonus_list = []
-    alive_bonus_list = []
+    total_rewards = []
+    reward_forward_list = []
+    reward_survive_list = []
+    reward_ctrl_list = []
     height_pen_list = []
     angle_pen_list = []
     smooth_pen_list = []
@@ -118,11 +116,10 @@ use_discrete_actions=use_discrete_actions,  # ✅ Pasar parámetro
             obs, _ = eval_env.reset(seed=SEED + 10_000 + ep)
             done = False
             
-            ep_shaped_reward = 0.0
-            ep_base_reward = 0.0
-
-            ep_speed_bonus = 0.0
-            ep_alive_bonus = 0.0
+            ep_total_reward = 0.0
+            ep_reward_forward = 0.0
+            ep_reward_survive = 0.0
+            ep_reward_ctrl = 0.0
             ep_height_pen = 0.0
             ep_angle_pen = 0.0
             ep_smooth_pen = 0.0
@@ -131,21 +128,19 @@ use_discrete_actions=use_discrete_actions,  # ✅ Pasar parámetro
                 action, _ = model.predict(obs, deterministic=True)
                 obs, reward, terminated, truncated, info = eval_env.step(action)
                 
-                ep_shaped_reward += float(reward)
-                ep_base_reward += float(info.get("debug/base", reward))
-
-                ep_speed_bonus += float(info.get("debug/speed_bonus", 0.0))
-                ep_alive_bonus += float(info.get("debug/alive_bonus", 0.0))
+                ep_total_reward += float(reward)
+                ep_reward_forward += float(info.get("debug/reward_forward", 0.0))
+                ep_reward_survive += float(info.get("debug/reward_survive", 0.0))
+                ep_reward_ctrl += float(info.get("debug/reward_ctrl", 0.0))
                 ep_height_pen += float(info.get("debug/height_pen", 0.0))
                 ep_angle_pen += float(info.get("debug/angle_pen", 0.0))
                 ep_smooth_pen += float(info.get("debug/smooth_pen", 0.0))
                 done = bool(terminated or truncated)
 
-            shaped_rewards.append(ep_shaped_reward)
-            base_rewards.append(ep_base_reward)
-
-            speed_bonus_list.append(ep_speed_bonus)
-            alive_bonus_list.append(ep_alive_bonus)
+            total_rewards.append(ep_total_reward)
+            reward_forward_list.append(ep_reward_forward)
+            reward_survive_list.append(ep_reward_survive)
+            reward_ctrl_list.append(ep_reward_ctrl)
             height_pen_list.append(ep_height_pen)
             angle_pen_list.append(ep_angle_pen)
             smooth_pen_list.append(ep_smooth_pen)
@@ -154,15 +149,14 @@ use_discrete_actions=use_discrete_actions,  # ✅ Pasar parámetro
         eval_env.close()
 
     return {
-        "mean_shaped_reward": float(np.mean(shaped_rewards)),
-        "std_shaped_reward": float(np.std(shaped_rewards)),
-        "mean_base_reward": float(np.mean(base_rewards)),
-        "std_base_reward": float(np.std(base_rewards)),
-        "mean_speed_bonus": float(np.mean(speed_bonus_list)),
-        "mean_alive_bonus": float(np.mean(alive_bonus_list)),
-        "mean_height_pen": float(np.mean(height_pen_list)),
-        "mean_angle_pen": float(np.mean(angle_pen_list)),
-        "mean_smooth_pen": float(np.mean(smooth_pen_list)),
+        "avg_reward": float(np.mean(total_rewards)),
+        "std_reward": float(np.std(total_rewards)),
+        "avg_reward_forward": float(np.mean(reward_forward_list)),
+        "avg_reward_survive": float(np.mean(reward_survive_list)),
+        "avg_reward_ctrl": float(np.mean(reward_ctrl_list)),
+        "avg_height_pen": float(np.mean(height_pen_list)),
+        "avg_angle_pen": float(np.mean(angle_pen_list)),
+        "avg_smooth_pen": float(np.mean(smooth_pen_list)),
     }
 
 
@@ -235,7 +229,6 @@ use_discrete_actions=USE_DISCRETE_ACTIONS,  # ✅ Pasar parámetro
 
             steps_done += chunk
 
-# ✅ Pasar use_discrete_actions a evaluate_model
             eval_stats = evaluate_model(
                 model,
                 N_EVAL_EPISODES,
@@ -243,23 +236,18 @@ use_discrete_actions=USE_DISCRETE_ACTIONS,  # ✅ Pasar parámetro
             )
             print(
                 f"[Eval] steps={steps_done} | "
-                f"shaped={eval_stats['mean_shaped_reward']:.2f} � {eval_stats['std_shaped_reward']:.2f} | "
-                f"base={eval_stats['mean_base_reward']:.2f} � {eval_stats['std_base_reward']:.2f}"
+                f"avg_reward={eval_stats['avg_reward']:.2f} ± {eval_stats['std_reward']:.2f}"
             )
 
-            writer.add_scalar("eval/shaped_reward_mean", eval_stats["mean_shaped_reward"], steps_done)
-            writer.add_scalar("eval/shaped_reward_std", eval_stats["std_shaped_reward"], steps_done)
+            writer.add_scalar("eval/avg_reward", eval_stats["avg_reward"], steps_done)
+            writer.add_scalar("eval/reward_forward", eval_stats["avg_reward_forward"], steps_done)
+            writer.add_scalar("eval/reward_survive", eval_stats["avg_reward_survive"], steps_done)
+            writer.add_scalar("eval/reward_ctrl", eval_stats["avg_reward_ctrl"], steps_done)
+            writer.add_scalar("eval/height_pen", eval_stats["avg_height_pen"], steps_done)
+            writer.add_scalar("eval/angle_pen", eval_stats["avg_angle_pen"], steps_done)
+            writer.add_scalar("eval/smooth_pen", eval_stats["avg_smooth_pen"], steps_done)
 
-            writer.add_scalar("eval/base_reward_mean", eval_stats["mean_base_reward"], steps_done)
-            writer.add_scalar("eval/base_reward_std", eval_stats["std_base_reward"], steps_done)
-
-            writer.add_scalar("eval/shaping/speed_bonus_mean", eval_stats["mean_speed_bonus"], steps_done)
-            writer.add_scalar("eval/shaping/alive_bonus_mean", eval_stats["mean_alive_bonus"], steps_done)
-            writer.add_scalar("eval/shaping/height_pen_mean", eval_stats["mean_height_pen"], steps_done)
-            writer.add_scalar("eval/shaping/angle_pen_mean", eval_stats["mean_angle_pen"], steps_done)
-            writer.add_scalar("eval/shaping/smooth_pen_mean", eval_stats["mean_smooth_pen"], steps_done)
-
-            avg_eval_reward = eval_stats["mean_shaped_reward"]
+            avg_eval_reward = eval_stats["avg_reward"]
 
             if steps_done % CHECKPOINT_EVERY == 0 or steps_done >= TOTAL_TIMESTEPS:
                 ckpt_path = os.path.join(MODEL_DIR, f"{ALGO}_walker2d_step{steps_done}.pt")
