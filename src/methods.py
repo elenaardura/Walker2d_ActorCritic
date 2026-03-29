@@ -28,14 +28,14 @@ def build_model(
         return PPO(
             policy="CnnPolicy",
             env=env,
-            learning_rate=3e-4,# antes 1e-4
+            learning_rate=1e-4,# antes 1e-4 (cambio a 3e-4 y vuelta a poner a 1e-4 el 29 a las 9:35)
             n_steps=4096, # antes 1024
             batch_size=256, # antes 64, luego 128
             n_epochs=10,
             gamma=0.99,
             gae_lambda=0.95,
             clip_range=0.2,
-            ent_coef=0.015, # antes 0.0, luego 0.01 (cambiado a las 15:51)
+            ent_coef=0.003, # antes 0.0, luego 0.01 (cambiado a las 15:51), cambio a 0.015 y luego a 0.003 el 29 a las 9:35
             vf_coef=0.5,
             max_grad_norm=0.5,
             seed=seed,

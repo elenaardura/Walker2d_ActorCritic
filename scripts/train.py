@@ -62,11 +62,11 @@ class ActionMonitorCallback(BaseCallback):
 # -----------------------------
 # Configuración / hiperparámetros
 # -----------------------------
-ALGO = "ppo"                      # "ppo" o "sac"
+ALGO = "sac"                      # "ppo" o "sac"
 ENV_ID = "Walker2d-v5"
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 
-TOTAL_TIMESTEPS = 10_000_000 # antes 5M (cambio a 10M a partir del 24 a las 10:35). Los del SAC a 2M y cambio a 5M a las 12:29 del 27 
+TOTAL_TIMESTEPS = 5_000_000 # antes 5M (cambio a 10M a partir del 24 a las 10:35). Los del SAC a 2M y cambio a 5M a las 12:29 del 27 
 SEED = 42
 NUM_ENVS = 8 # antes 4 (cambio +batch 256 y capas 512) ,luego 8 para SAC 1
 IMAGE_SIZE = 84
