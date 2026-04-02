@@ -7,7 +7,7 @@ from torch.utils.tensorboard import SummaryWriter
 from stable_baselines3.common.callbacks import BaseCallback
 
 from src.envs import make_vec_walker_env, make_single_walker_env
-from src.methods import build_model
+from src.methods import build_model, load_model
 from scripts.utils import seed_everything, make_run_dir, save_config, save_experiment_to_excel
 
 
@@ -66,6 +66,11 @@ ALGO = "sac"                      # "ppo" o "sac"
 ENV_ID = "Walker2d-v5"
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 
+RESUME_TRAINING = True
+RESUME_DIR = "runs/Apr01_17_17_22"
+RESUME_FROM_STEP = 1_350_000
+RESUME_CHECKPOINT = os.path.join(RESUME_DIR, f"{ALGO}_walker2d_step{RESUME_FROM_STEP}.pt")
+
 TOTAL_TIMESTEPS = 5_000_000 # antes 5M (cambio a 10M a partir del 24 a las 10:35). Los del SAC a 2M y cambio a 5M a las 12:29 del 27 
 SEED = 42
 NUM_ENVS = 8 # antes 4 (cambio +batch 256 y capas 512) ,luego 8 para SAC 1
@@ -85,8 +90,7 @@ N_EVAL_EPISODES = 10
 EXPERIMENT_XLSX = "runs/experiments.xlsx"
 
 # Si quieres reusar un directorio fijo, comenta la línea de abajo y fija MODEL_DIR manualmente
-# MODEL_DIR = str(make_run_dir("runs")
-MODEL_DIR = f"runs/Apr01_17_17_22"
+MODEL_DIR = RESUME_DIR if RESUME_TRAINING else str(make_run_dir("runs"))
 TB_DIR = os.path.join(MODEL_DIR, "SAC_0")
 
 # os.makedirs(MODEL_DIR, exist_ok=True)
@@ -203,18 +207,28 @@ def main():
 use_discrete_actions=USE_DISCRETE_ACTIONS,  # ✅ Pasar parámetro
     )
 
-    model = build_model(
-        algo=ALGO,
-        env=env,
-        seed=SEED,
-        tensorboard_log=MODEL_DIR,
-        device=DEVICE,
-    )
+    if RESUME_TRAINING: 
+        model = load_model(
+            algo=ALGO,
+            model_path=RESUME_CHECKPOINT,
+            env=env,
+            device=DEVICE,
+        )
+        
+        steps_done = RESUME_FROM_STEP
+    else:    
+        model = build_model(
+            algo=ALGO,
+            env=env,
+            seed=SEED,
+            tensorboard_log=MODEL_DIR,
+            device=DEVICE,
+        )
+        steps_done = 0
 
     # Añadir el callback personalizado
     action_monitor_callback = ActionMonitorCallback(writer=writer)
 
-    steps_done = 0
     avg_eval_reward = np.nan
 
     try:
@@ -224,6 +238,7 @@ use_discrete_actions=USE_DISCRETE_ACTIONS,  # ✅ Pasar parámetro
             model.learn(
                 total_timesteps=chunk,
                 reset_num_timesteps=False,
+                tb_log_name = "SAC_0",
                 progress_bar=True,
                 callback=action_monitor_callback,  # Usar el callback
             )
