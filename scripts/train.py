@@ -79,13 +79,14 @@ HEALTHY_Z_RANGE = (0.8, 2.0)
 USE_DISCRETE_ACTIONS = False
 
 EVAL_EVERY = 100_000
-CHECKPOINT_EVERY = 100_000
+CHECKPOINT_EVERY = 50_000
 N_EVAL_EPISODES = 10
 
 EXPERIMENT_XLSX = "runs/experiments.xlsx"
 
 # Si quieres reusar un directorio fijo, comenta la línea de abajo y fija MODEL_DIR manualmente
-MODEL_DIR = str(make_run_dir("runs"))
+# MODEL_DIR = str(make_run_dir("runs")
+MODEL_DIR = f"runs/Apr01_17_17_22"
 TB_DIR = os.path.join(MODEL_DIR, "SAC_0")
 
 # os.makedirs(MODEL_DIR, exist_ok=True)

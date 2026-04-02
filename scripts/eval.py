@@ -14,7 +14,7 @@ ENV_ID = "Walker2d-v5"
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 
 MODEL_DATE = "Mar29_09_36_01"  # ajusta esto
-LOAD_STEP =  10_000_000            # ajusta esto
+LOAD_STEP =  500_000            # ajusta esto
 MODEL_PATH = f"runs/{MODEL_DATE}/{ALGO}_walker2d_step{LOAD_STEP}.pt"
 VIDEO_DIR = f"runs/{MODEL_DATE}/videos_eval"
 N_EPISODES = 5
