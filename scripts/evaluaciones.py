@@ -32,7 +32,7 @@ DEFAULT_DETERMINISTIC = True
 
 def extract_step(path: Path) -> int:
     """
-    Extrae el n�mero de step de nombres tipo:
+    Extrae el numero de step de nombres tipo:
       - ppo_walker2d_step500000.pt
       - sac_walker2d_step1350000.zip
       - sac_walker2d_step1350000.pt.zip
@@ -200,13 +200,13 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--run_dir", type=str, required=True, help="Directorio de la corrida, p.ej. runs/Apr01_17_17_22")
     parser.add_argument("--algo", type=str, required=True, choices=["ppo", "sac"], help="Algoritmo a evaluar")
-    parser.add_argument("--n_episodes", type=int, default=10)
+    parser.add_argument("--n_episodes", type=int, default=20)
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--device", type=str, default="cuda" if torch.cuda.is_available() else "cpu")
-    parser.add_argument("--every", type=int, default=1, help="Eval�a 1 de cada N checkpoints")
-    parser.add_argument("--limit", type=int, default=0, help="M�ximo n�mero de checkpoints a evaluar; 0 = todos")
-    parser.add_argument("--deterministic", action="store_true", help="Fuerza evaluaci�n determinista")
-    parser.add_argument("--record_best_video", action="store_true", help="Graba v�deo del mejor checkpoint")
+    parser.add_argument("--every", type=int, default=1, help="Evalua 1 de cada N checkpoints")
+    parser.add_argument("--limit", type=int, default=0, help="Maximo numero de checkpoints a evaluar; 0 = todos")
+    parser.add_argument("--deterministic", action="store_true", help="Fuerza evaluacion determinista")
+    parser.add_argument("--record_best_video", action="store_true", help="Graba video del mejor checkpoint")
     args = parser.parse_args()
 
     run_dir = Path(args.run_dir)

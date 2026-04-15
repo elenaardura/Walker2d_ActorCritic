@@ -7,7 +7,6 @@ ALGOS = {
     "sac": SAC,
 }
 
-
 def build_model(
     algo: str,
     env,
@@ -16,29 +15,24 @@ def build_model(
     device: str = "auto",
 ):
     algo = algo.lower()
-    
-    # puesto a 512 el 31 a las 9:21
-    # cambiado de neuvo a 256 el 1/04 a las 17:17 
 
     common_policy_kwargs = {
         "features_extractor_kwargs": {"features_dim": 256},
-        # "features_extractor_kwargs": {"features_dim": 512},
         "net_arch": [256, 256],
-        # "net_arch": [512, 512],
     }
 
     if algo == "ppo":
         return PPO(
             policy="CnnPolicy",
             env=env,
-            learning_rate=1e-4,# antes 1e-4 (cambio a 3e-4 y vuelta a poner a 1e-4 el 29 a las 9:35)
-            n_steps=4096, # antes 1024
-            batch_size=256, # antes 64, luego 128
+            learning_rate=1e-4,
+            n_steps=4096, 
+            batch_size=256, 
             n_epochs=10,
             gamma=0.99,
             gae_lambda=0.95,
             clip_range=0.2,
-            ent_coef=0.003, # antes 0.0, luego 0.01 (cambiado a las 15:51), cambio a 0.015 y luego a 0.003 el 29 a las 9:35
+            ent_coef=0.003, 
             vf_coef=0.5,
             max_grad_norm=0.5,
             seed=seed,
@@ -52,20 +46,15 @@ def build_model(
         return SAC(
             policy="CnnPolicy",
             env=env,
-            # cambiado a 2e-3 el 1/04 a las 17:17
-            learning_rate=2e-5, # antes 3e-4, luego 1e-4 (cambiado el 26 a las 11:40 a 5e-5, y luego a 3e-5 el 27 a las 12:29), he vuelto a poner a 5e-5 el 30 a las 17:50 con la nueva reward y de nuevo 3e-5 el 30 a las 22:55
-            # cambiado a 300k el 1/04 a las 17:17
-            buffer_size=300_000, # antes 300k (cambio a 100k el 26 a las 10:20). Cambiado a 300k el 30 a las 17:50 con la nueva reward y de nuevo a 100k el 31 a las 9:21
-            # cambiado a 50k el 1/04 a las 17:17
-            learning_starts=50_000, #antes 25k (cambio a 100k el 26 a las 8:12, cambio a 20k el 26 a las 10:20). cambiado a 30k el 30 a las 17:50 con la nueva reward y a 40k a las 22:55 y luego a 20k el 31 a las 9:21    
-            batch_size=256, # antes 256 (cambiado a  128 a las 8:14 del 26, vuelto a poner a las 10:20)
-            # cambiado a 0.002 el 1/04 a las 17:17
-            tau=0.002, # antes 0.005 (cambiado a 0.01 vuelto a poner a las 10:20)
+            learning_rate=2e-5,
+            buffer_size=300_000,
+            learning_starts=50_000,  
+            batch_size=256,
+            tau=0.002,
             gamma=0.99,
-            train_freq=(1, "step"), # antes (1, "step") y vuelto a poner a las 10:20 del 26
-            # cambiado a 2 el 1/04 a las 17:17
-            gradient_steps=2, # antes 1 y vuelto a poner a las 10:20 del 26. Cambiado a 2 el 30 a las 17:50 con la nueva reward
-            ent_coef="auto", # antes auto, luego 0.01 (cambiado a las 8:14 el 26) y vuelto a poner a las 10:20 del 26
+            train_freq=(1, "step"),
+            gradient_steps=2,
+            ent_coef="auto", 
             target_entropy="auto",
             seed=seed,
             verbose=1,
@@ -73,7 +62,6 @@ def build_model(
             device=device,
             policy_kwargs={
                 **common_policy_kwargs,
-                
             },
         )
 
