@@ -6,18 +6,16 @@ from src.methods import load_model
 from src.envs import make_single_walker_env
 
 
-# -----------------------------
-# Configuración
-# -----------------------------
+# Configuración--
 ALGO = "sac"   # "ppo" o "sac"
 ENV_ID = "Walker2d-v5"
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 
-MODEL_DATE = "Apr01_17_17_22"  # ajusta esto
-LOAD_STEP =  5_000_000            # ajusta esto
+MODEL_DATE = "Apr01_17_17_22"  
+LOAD_STEP =  5_000_000
 MODEL_PATH = f"runs/{MODEL_DATE}/{ALGO}_walker2d_step{LOAD_STEP}.pt"
 VIDEO_DIR = f"runs/{MODEL_DATE}/videos_eval"
-N_EPISODES = 10
+N_EPISODES = 20
 
 SEED = 42
 IMAGE_SIZE = 84
@@ -27,11 +25,9 @@ TERMINATE_WHEN_UNHEALTHY = True
 HEALTHY_Z_RANGE = (0.8, 2.0)
 DETERMINISTIC = False
 
-# ✅ NUEVO: Usar acciones discretas
-USE_DISCRETE_ACTIONS = False  # Cambiar a False si el modelo fue entrenado con acciones continuas
+USE_DISCRETE_ACTIONS = False  
 
 os.makedirs(VIDEO_DIR, exist_ok=True)
-
 
 def main():
     env = make_single_walker_env(

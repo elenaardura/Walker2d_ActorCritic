@@ -11,9 +11,7 @@ from src.methods import build_model, load_model
 from scripts.utils import seed_everything, make_run_dir, save_config, save_experiment_to_excel
 
 
-# ============================================================
 # Callback personalizado para monitorear acciones
-# ============================================================
 class ActionMonitorCallback(BaseCallback):
     """
     Monitorea las acciones tomadas por el modelo durante el entrenamiento.
@@ -59,21 +57,19 @@ class ActionMonitorCallback(BaseCallback):
         return True
 
 
-# -----------------------------
-# Configuración / hiperparámetros
-# -----------------------------
-ALGO = "sac"                      # "ppo" o "sac"
+# Configuración 
+ALGO = "sac"   # "ppo" o "sac"
 ENV_ID = "Walker2d-v5"
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 
-RESUME_TRAINING = True
-RESUME_DIR = "runs/Apr01_17_17_22"
-RESUME_FROM_STEP = 1_350_000
+RESUME_TRAINING = False  # Cambia a True para reanudar desde un checkpoint
+RESUME_DIR = "runs/XXXX"
+RESUME_FROM_STEP = "XXXX"
 RESUME_CHECKPOINT = os.path.join(RESUME_DIR, f"{ALGO}_walker2d_step{RESUME_FROM_STEP}.pt")
 
-TOTAL_TIMESTEPS = 5_000_000 # antes 5M (cambio a 10M a partir del 24 a las 10:35). Los del SAC a 2M y cambio a 5M a las 12:29 del 27 
+TOTAL_TIMESTEPS = 5_000_000
 SEED = 42
-NUM_ENVS = 8 # antes 4 (cambio +batch 256 y capas 512) ,luego 8 para SAC 1
+NUM_ENVS = 8 # para sac debe ser 1
 IMAGE_SIZE = 84
 FRAME_STACK = 4
 
@@ -89,11 +85,12 @@ N_EVAL_EPISODES = 10
 
 EXPERIMENT_XLSX = "runs/experiments.xlsx"
 
-# Si quieres reusar un directorio fijo, comenta la línea de abajo y fija MODEL_DIR manualmente
-MODEL_DIR = RESUME_DIR if RESUME_TRAINING else str(make_run_dir("runs"))
-TB_DIR = os.path.join(MODEL_DIR, "SAC_0")
+# Si quieres reusar un directorio fijo:
+# MODEL_DIR = RESUME_DIR if RESUME_TRAINING else str(make_run_dir("runs"))
 
-# os.makedirs(MODEL_DIR, exist_ok=True)
+# Si quieres un nuevo directorio cada vez:
+MODEL_DIR = str(make_run_dir("runs"))
+TB_DIR = os.path.join(MODEL_DIR, "SAC_0")
 
 
 def evaluate_model(model, n_episodes=10, use_discrete_actions=False):
@@ -105,7 +102,7 @@ def evaluate_model(model, n_episodes=10, use_discrete_actions=False):
         reward_shaping=REWARD_SHAPING,
         terminate_when_unhealthy=TERMINATE_WHEN_UNHEALTHY,
         healthy_z_range=HEALTHY_Z_RANGE,
-use_discrete_actions=use_discrete_actions,  # ✅ Pasar parámetro
+        use_discrete_actions=use_discrete_actions,
     )
 
     total_rewards = []
@@ -170,6 +167,7 @@ def main():
 
     global NUM_ENVS
 
+    # Por si acaso se intenta usar SAC con múltiples entornos, forzamos a 1
     if ALGO == "sac":
         NUM_ENVS = 1
 
@@ -187,7 +185,7 @@ def main():
         "reward_shaping": REWARD_SHAPING,
         "terminate_when_unhealthy": TERMINATE_WHEN_UNHEALTHY,
         "healthy_z_range": HEALTHY_Z_RANGE,
-        "use_discrete_actions": USE_DISCRETE_ACTIONS,  # ✅ Guardar en config
+        "use_discrete_actions": USE_DISCRETE_ACTIONS,
         "eval_every": EVAL_EVERY,
         "checkpoint_every": CHECKPOINT_EVERY,
         "n_eval_episodes": N_EVAL_EPISODES,
@@ -204,7 +202,7 @@ def main():
         terminate_when_unhealthy=TERMINATE_WHEN_UNHEALTHY,
         healthy_z_range=HEALTHY_Z_RANGE,
         monitor_path=os.path.join(MODEL_DIR, "train_monitor.csv"),
-use_discrete_actions=USE_DISCRETE_ACTIONS,  # ✅ Pasar parámetro
+    use_discrete_actions=USE_DISCRETE_ACTIONS, 
     )
 
     if RESUME_TRAINING: 
@@ -214,7 +212,6 @@ use_discrete_actions=USE_DISCRETE_ACTIONS,  # ✅ Pasar parámetro
             env=env,
             device=DEVICE,
         )
-        # model.learning_starts = model.num_timesteps + 50_000
         steps_done = RESUME_FROM_STEP
     else:    
         model = build_model(
@@ -239,7 +236,7 @@ use_discrete_actions=USE_DISCRETE_ACTIONS,  # ✅ Pasar parámetro
                 total_timesteps=chunk,
                 reset_num_timesteps=False,
                 progress_bar=True,
-                callback=action_monitor_callback,  # Usar el callback
+                callback=action_monitor_callback,
             )
 
             steps_done += chunk
@@ -271,7 +268,7 @@ use_discrete_actions=USE_DISCRETE_ACTIONS,  # ✅ Pasar parámetro
 
         final_path = os.path.join(MODEL_DIR, f"{ALGO}_walker2d.pt")
         model.save(final_path)
-        print(f"[OK] Final model saved: {final_path}")
+        print(f"Final model saved: {final_path}")
 
     finally:
         env.close()
@@ -287,7 +284,7 @@ use_discrete_actions=USE_DISCRETE_ACTIONS,  # ✅ Pasar parámetro
         "frame_stack": FRAME_STACK,
         "reward_shaping": REWARD_SHAPING,
         "terminate_when_unhealthy": TERMINATE_WHEN_UNHEALTHY,
-"use_discrete_actions": USE_DISCRETE_ACTIONS,  # ✅ Guardar en Excel
+        "use_discrete_actions": USE_DISCRETE_ACTIONS,
         "avg_eval_reward": avg_eval_reward,
         "comments": "PPO/SAC visual Walker2d-v5",
     }
