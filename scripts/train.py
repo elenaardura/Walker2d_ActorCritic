@@ -214,7 +214,7 @@ use_discrete_actions=USE_DISCRETE_ACTIONS,  # ✅ Pasar parámetro
             env=env,
             device=DEVICE,
         )
-        
+        # model.learning_starts = model.num_timesteps + 50_000
         steps_done = RESUME_FROM_STEP
     else:    
         model = build_model(
@@ -238,7 +238,6 @@ use_discrete_actions=USE_DISCRETE_ACTIONS,  # ✅ Pasar parámetro
             model.learn(
                 total_timesteps=chunk,
                 reset_num_timesteps=False,
-                tb_log_name = "SAC_0",
                 progress_bar=True,
                 callback=action_monitor_callback,  # Usar el callback
             )

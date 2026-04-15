@@ -9,15 +9,15 @@ from src.envs import make_single_walker_env
 # -----------------------------
 # Configuración
 # -----------------------------
-ALGO = "ppo"   # "ppo" o "sac"
+ALGO = "sac"   # "ppo" o "sac"
 ENV_ID = "Walker2d-v5"
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 
-MODEL_DATE = "Mar29_09_36_01"  # ajusta esto
-LOAD_STEP =  500_000            # ajusta esto
+MODEL_DATE = "Apr01_17_17_22"  # ajusta esto
+LOAD_STEP =  5_000_000            # ajusta esto
 MODEL_PATH = f"runs/{MODEL_DATE}/{ALGO}_walker2d_step{LOAD_STEP}.pt"
 VIDEO_DIR = f"runs/{MODEL_DATE}/videos_eval"
-N_EPISODES = 5
+N_EPISODES = 10
 
 SEED = 42
 IMAGE_SIZE = 84
@@ -25,7 +25,7 @@ FRAME_STACK = 4
 REWARD_SHAPING = True
 TERMINATE_WHEN_UNHEALTHY = True
 HEALTHY_Z_RANGE = (0.8, 2.0)
-DETERMINISTIC = True
+DETERMINISTIC = False
 
 # ✅ NUEVO: Usar acciones discretas
 USE_DISCRETE_ACTIONS = False  # Cambiar a False si el modelo fue entrenado con acciones continuas
